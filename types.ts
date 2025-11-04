@@ -15,6 +15,7 @@ export interface User {
   password?: string; // Added password field
   followers?: string[]; // Array of user IDs
   following?: string[]; // Array of user IDs
+  joinedCommunities?: string[]; // Array of community IDs
 }
 
 export interface Comment {
@@ -32,6 +33,8 @@ export interface Post {
   caption: string;
   likes: string[]; // Array of user IDs
   comments: Comment[];
+  communityId?: string;
+  communityName?: string;
 }
 
 export interface Story {

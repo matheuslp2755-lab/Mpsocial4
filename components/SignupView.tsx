@@ -31,6 +31,7 @@ const SignupView: React.FC<SignupViewProps> = ({ onSignupSuccess, onSwitchToLogi
             bio: t('default_bio'),
             followers: [],
             following: [],
+            joinedCommunities: [],
         };
         
         const result = await onSignupSuccess(newUserPartial);

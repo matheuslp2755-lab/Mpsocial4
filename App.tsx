@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChatConversation, User, View, Post, Comment, Story } from './types';
+import { ChatConversation, User, View, Post, Comment, Story, Community } from './types';
 import BottomNav from './components/BottomNav';
 import ChatListView from './components/ChatListView';
 import ChatView from './components/ChatView';
@@ -15,13 +15,15 @@ import SearchView from './components/SearchView';
 import CommentsView from './components/CommentsView';
 import CreateStoryView from './components/CreateStoryView';
 import StoryViewer from './components/StoryViewer';
+import CommunityView from './components/CommunityView';
 import { translations } from './i18n';
 import { db } from './firebase';
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, arrayUnion, arrayRemove, query, where } from "firebase/firestore";
+import { mockCommunities } from './data/mockData';
 
 const App: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [communities, setCommunities] = useState<Community[]>(mockCommunities);
 
   const [posts, setPosts] = useState<Post[]>(() => {
     const savedPosts = localStorage.getItem('mp_social_posts');
@@ -77,6 +79,7 @@ const App: React.FC = () => {
   
   const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
   const [selectedProfileUser, setSelectedProfileUser] = useState<User | null>(null);
+  const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isNewUserSetup, setIsNewUserSetup] = useState(false);
@@ -95,7 +98,20 @@ const App: React.FC = () => {
     }
 
     const userDoc = querySnapshot.docs[0];
-    const user = { id: userDoc.id, ...userDoc.data() } as User;
+    const data = userDoc.data();
+    // Manually construct a plain user object to avoid circular references from Firestore's complex objects
+    const user: User = {
+        id: userDoc.id,
+        name: data.name,
+        avatarUrl: data.avatarUrl,
+        nickname: data.nickname,
+        bio: data.bio,
+        password: data.password,
+        followers: data.followers,
+        following: data.following,
+        joinedCommunities: data.joinedCommunities || []
+    };
+
 
     if (user.password === password) {
         setCurrentUser(user);
@@ -123,7 +139,6 @@ const App: React.FC = () => {
     
     await setDoc(doc(db, "usuarios", newUser.id), newUser);
     
-    setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
 
     setShowWelcome(true);
@@ -179,13 +194,12 @@ const App: React.FC = () => {
     await setDoc(userRef, updatedUser, { merge: true });
 
     setCurrentUser(updatedUser);
-    setUsers(prevUsers => prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u));
     setIsEditingProfile(false);
     setIsNewUserSetup(false);
     setIsSearching(false); // Close search view if open
   };
 
-  const handleCreatePost = (caption: string, mediaUrl: string) => {
+  const handleCreatePost = (caption: string, mediaUrl: string, community?: Community) => {
     if (!currentUser) return;
     
     const newPost: Post = {
@@ -196,6 +210,8 @@ const App: React.FC = () => {
       caption,
       likes: [],
       comments: [],
+      communityId: community?.id,
+      communityName: community?.name,
     };
     
     setPosts(prevPosts => [newPost, ...prevPosts]);
@@ -221,6 +237,7 @@ const App: React.FC = () => {
     setSelectedProfileUser(user);
     setActiveView(View.Profile);
     setIsSearching(false);
+    setSelectedCommunity(null);
   };
 
   const handleFollowToggle = async (targetUserId: string) => {
@@ -232,49 +249,65 @@ const App: React.FC = () => {
     const isFollowing = currentUser.following?.includes(targetUserId);
 
     try {
+        // Step 1: Update Firestore documents
         await Promise.all([
             updateDoc(currentUserRef, { following: isFollowing ? arrayRemove(targetUserId) : arrayUnion(targetUserId) }),
             updateDoc(targetUserRef, { followers: isFollowing ? arrayRemove(currentUserId) : arrayUnion(currentUserId) })
         ]);
 
-        // Optimistically update local state for immediate UI feedback
-        const updatedUsers = users.map(u => {
-            if (u.id === targetUserId) {
-                return { ...u, followers: isFollowing ? u.followers?.filter(id => id !== currentUserId) : [...(u.followers || []), currentUserId] };
+        // Step 2: Optimistically update local state for immediate UI feedback
+        const updatedFollowingList = isFollowing
+            ? currentUser.following?.filter(id => id !== targetUserId)
+            : [...(currentUser.following || []), targetUserId];
+        
+        setCurrentUser(prev => prev ? { ...prev, following: updatedFollowingList } : null);
+
+        if (selectedProfileUser && selectedProfileUser.id === targetUserId) {
+            const updatedFollowersList = isFollowing
+                ? selectedProfileUser.followers?.filter(id => id !== currentUserId)
+                : [...(selectedProfileUser.followers || []), currentUserId];
+            
+            setSelectedProfileUser(prev => prev ? { ...prev, followers: updatedFollowersList } : null);
+        }
+
+        // Step 3: Create a new conversation if the user starts following
+        if (!isFollowing) {
+            const userDoc = await getDoc(targetUserRef);
+            if (userDoc.exists()) {
+                const data = userDoc.data();
+                // Manually construct a plain user object
+                const targetUser: User = { 
+                    id: userDoc.id,
+                    name: data.name,
+                    avatarUrl: data.avatarUrl,
+                    nickname: data.nickname,
+                    bio: data.bio,
+                    password: data.password,
+                    followers: data.followers,
+                    following: data.following,
+                    joinedCommunities: data.joinedCommunities || [],
+                };
+                setConversations(prevConvos => {
+                    const conversationExists = prevConvos.some(c => c.user.id === targetUserId);
+                    if (!conversationExists) {
+                        const newConversation: ChatConversation = {
+                            id: `c${currentUserId}-${targetUserId}`,
+                            user: targetUser,
+                            lastMessage: t('start_conversation_prompt', { name: targetUser.name }),
+                            lastMessageTime: '',
+                            messages: [],
+                        };
+                        return [newConversation, ...prevConvos];
+                    }
+                    return prevConvos;
+                });
             }
-            if (u.id === currentUserId) {
-                return { ...u, following: isFollowing ? u.following?.filter(id => id !== targetUserId) : [...(u.following || []), targetUserId] };
-            }
-            return u;
-        });
-
-        const updatedCurrentUser = updatedUsers.find(u => u.id === currentUserId);
-        const targetUser = updatedUsers.find(u => u.id === targetUserId);
-
-        if (updatedCurrentUser) {
-            setCurrentUser(updatedCurrentUser);
         }
-
-        if (selectedProfileUser && selectedProfileUser.id === targetUserId && targetUser) {
-            setSelectedProfileUser(targetUser);
-        }
-
-        if (updatedCurrentUser && targetUser && !isFollowing) {
-            setConversations(prevConvos => {
-                const conversationExists = prevConvos.some(c => c.user.id === targetUserId);
-                if (!conversationExists) {
-                    const newConversation: ChatConversation = { id: `c${currentUser.id}-${targetUserId}`, user: targetUser, lastMessage: t('start_conversation_prompt', { name: targetUser.name }), lastMessageTime: '', messages: [], };
-                    return [newConversation, ...prevConvos];
-                }
-                return prevConvos;
-            });
-        }
-        setUsers(updatedUsers);
     } catch (error) {
         console.error("Error updating follow status: ", error);
         // Optionally revert state on error
     }
-};
+  };
 
 
   const handleLikeToggle = (postId: string) => {
@@ -327,7 +360,53 @@ const App: React.FC = () => {
       }
   };
 
-  const navigate = (view: View) => setActiveView(view);
+  const handleCommunityJoinToggle = async (communityId: string) => {
+    if (!currentUser) return;
+
+    const userRef = doc(db, "usuarios", currentUser.id);
+    const isMember = currentUser.joinedCommunities?.includes(communityId);
+
+    try {
+      // Update Firestore
+      await updateDoc(userRef, {
+        joinedCommunities: isMember ? arrayRemove(communityId) : arrayUnion(communityId)
+      });
+      
+      // Update local state for immediate feedback
+      const updatedJoinedCommunities = isMember
+        ? currentUser.joinedCommunities?.filter(id => id !== communityId)
+        : [...(currentUser.joinedCommunities || []), communityId];
+      
+      setCurrentUser(prev => prev ? { ...prev, joinedCommunities: updatedJoinedCommunities } : null);
+      
+      // Update member count for UI feedback
+      setCommunities(prev => prev.map(c => {
+        if (c.id === communityId) {
+          return { ...c, members: isMember ? c.members - 1 : c.members + 1 };
+        }
+        return c;
+      }));
+      // Update selected community if it's the one being modified
+      if(selectedCommunity?.id === communityId) {
+        setSelectedCommunity(prev => prev ? {...prev, members: isMember ? prev.members - 1 : prev.members + 1} : null);
+      }
+    } catch (error) {
+      console.error("Error updating community membership:", error);
+    }
+  };
+
+  const handleViewCommunityById = (communityId: string) => {
+    const community = communities.find(c => c.id === communityId);
+    if (community) {
+      setSelectedCommunity(community);
+    }
+  };
+
+  const navigate = (view: View) => {
+    setActiveView(view);
+    setSelectedCommunity(null);
+    setSelectedProfileUser(null);
+  }
   
   if (showWelcome && currentUser) {
     return <WelcomeView user={currentUser} t={t} />;
@@ -377,6 +456,21 @@ const App: React.FC = () => {
         t={t}
     />;
   }
+  
+  if (selectedCommunity) {
+    return <CommunityView
+        community={selectedCommunity}
+        posts={posts}
+        currentUser={currentUser}
+        onBack={() => setSelectedCommunity(null)}
+        onViewProfile={handleViewProfile}
+        onLikeToggle={handleLikeToggle}
+        onViewComments={setViewingCommentsForPost}
+        onCommunityJoinToggle={handleCommunityJoinToggle}
+        onViewCommunityById={handleViewCommunityById}
+        t={t}
+    />;
+  }
 
   if (selectedConversation) {
     return <ChatView conversation={selectedConversation} currentUser={currentUser} onBack={() => setSelectedConversation(null)} onSendMessage={handleSendMessage} t={t} />;
@@ -416,11 +510,12 @@ const App: React.FC = () => {
                 onViewComments={setViewingCommentsForPost} 
                 onAddStoryClick={() => setIsCreatingStory(true)}
                 onViewStories={setViewingStoriesOfUser}
+                onViewCommunityById={handleViewCommunityById}
                 t={t} 
             />
         }
-        {activeView === View.Explore && <ExploreView t={t} onSearchClick={() => setIsSearching(true)} />}
-        {activeView === View.Create && <CreatePostView onPost={handleCreatePost} t={t} />}
+        {activeView === View.Explore && <ExploreView t={t} onSearchClick={() => setIsSearching(true)} onSelectCommunity={setSelectedCommunity} communities={communities} currentUser={currentUser} onCommunityJoinToggle={handleCommunityJoinToggle} />}
+        {activeView === View.Create && <CreatePostView onPost={handleCreatePost} communities={communities} t={t} />}
         {activeView === View.Chat && <ChatListView conversations={conversations} onSelectConversation={setSelectedConversation} t={t} />}
         {activeView === View.Profile && (
           <ProfileView 
@@ -435,7 +530,7 @@ const App: React.FC = () => {
           />
         )}
       </main>
-      <BottomNav activeView={activeView} setActiveView={setActiveView} t={t} />
+      <BottomNav activeView={activeView} setActiveView={(view) => navigate(view)} t={t} />
     </div>
   );
 };

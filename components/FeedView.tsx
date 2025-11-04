@@ -1,5 +1,6 @@
 import React from 'react';
 import { Post, Story, User, View } from '../types';
+import PostCard from './PostCard';
 
 interface FeedViewProps {
     posts: Post[];
@@ -11,6 +12,7 @@ interface FeedViewProps {
     onViewComments: (post: Post) => void;
     onAddStoryClick: () => void;
     onViewStories: (user: User) => void;
+    onViewCommunityById: (communityId: string) => void;
     t: (key: any, params?: any) => string;
 }
 
@@ -71,55 +73,7 @@ const StoryTray: React.FC<{
     );
 };
 
-
-const PostCard: React.FC<{ post: Post; currentUser: User; onViewProfile: (user: User) => void; onLikeToggle: (postId: string) => void; onViewComments: (post: Post) => void; t: (key: any, params?: any) => string; }> = ({ post, currentUser, onViewProfile, onLikeToggle, onViewComments, t }) => {
-    const isLiked = post.likes.includes(currentUser.id);
-    
-    return (
-        <div className="mb-4 border-b border-nexus-light-gray pb-2">
-            <div className="flex items-center p-3">
-                <div className="flex items-center cursor-pointer" onClick={() => onViewProfile(post.user)}>
-                    <img src={post.user.avatarUrl} alt={post.user.name} className="w-9 h-9 rounded-full mr-3" />
-                    <span className="font-semibold">{post.user.name}</span>
-                </div>
-                <button className="ml-auto text-gray-400"><i className="fa-solid fa-ellipsis"></i></button>
-            </div>
-            <div>
-                {post.type === 'image' ? (
-                    <img src={post.contentUrl} alt="Post content" className="w-full" onDoubleClick={() => onLikeToggle(post.id)} />
-                ) : (
-                    <div className="relative">
-                        <video src={post.contentUrl} className="w-full" loop playsInline muted onDoubleClick={() => onLikeToggle(post.id)} />
-                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center text-white/50">
-                            <i className="fa-solid fa-play text-4xl"></i>
-                        </div>
-                    </div>
-                )}
-            </div>
-            <div className="p-3">
-                <div className="flex items-center space-x-4 mb-2">
-                    <button onClick={() => onLikeToggle(post.id)}>
-                        <i className={`${isLiked ? 'fa-solid text-red-500' : 'fa-regular'} fa-heart text-2xl transition-transform duration-200 ease-in-out`}></i>
-                    </button>
-                    <button onClick={() => onViewComments(post)}><i className="fa-regular fa-comment text-2xl"></i></button>
-                    <button><i className="fa-regular fa-paper-plane text-2xl"></i></button>
-                    <button className="ml-auto"><i className="fa-regular fa-bookmark text-2xl"></i></button>
-                </div>
-                <p className="font-semibold text-sm">{t('likes_count', { count: post.likes.length.toLocaleString() })}</p>
-                <p className="mt-1 text-sm">
-                    <span className="font-semibold mr-2 cursor-pointer" onClick={() => onViewProfile(post.user)}>{post.user.name}</span>
-                    <span className="text-gray-200">{post.caption}</span>
-                </p>
-                {post.comments.length > 0 && (
-                    <p className="text-gray-400 text-xs mt-2 cursor-pointer" onClick={() => onViewComments(post)}>{t('view_all_comments', { count: post.comments.length })}</p>
-                )}
-            </div>
-        </div>
-    );
-};
-
-
-const FeedView: React.FC<FeedViewProps> = ({ posts, stories, currentUser, onViewProfile, onNavigate, onLikeToggle, onViewComments, onAddStoryClick, onViewStories, t }) => {
+const FeedView: React.FC<FeedViewProps> = ({ posts, stories, currentUser, onViewProfile, onNavigate, onLikeToggle, onViewComments, onAddStoryClick, onViewStories, onViewCommunityById, t }) => {
     const followingIds = currentUser?.following || [];
     const feedPosts = posts.filter(post => followingIds.includes(post.user.id) || post.user.id === currentUser?.id);
 
@@ -136,7 +90,7 @@ const FeedView: React.FC<FeedViewProps> = ({ posts, stories, currentUser, onView
             />
             <div>
                 {feedPosts.length > 0 ? (
-                    feedPosts.map(post => <PostCard key={post.id} post={post} currentUser={currentUser} onViewProfile={onViewProfile} onLikeToggle={onLikeToggle} onViewComments={onViewComments} t={t} />)
+                    feedPosts.map(post => <PostCard key={post.id} post={post} currentUser={currentUser} onViewProfile={onViewProfile} onLikeToggle={onLikeToggle} onViewComments={onViewComments} onViewCommunityById={onViewCommunityById} t={t} />)
                 ) : (
                      <div className="text-center p-16 text-gray-400">
                         <i className="fa-solid fa-user-plus text-5xl mb-4"></i>

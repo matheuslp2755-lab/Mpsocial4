@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { generateImage } from '../services/geminiService';
 import { SparklesIcon } from './icons/Icon';
+import { Community } from '../types';
 
 interface CreatePostViewProps {
-    onPost: (caption: string, mediaUrl: string) => void;
+    onPost: (caption: string, mediaUrl: string, community?: Community) => void;
+    communities: Community[];
     t: (key: any) => string;
 }
 
-const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost, t }) => {
+const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost, communities, t }) => {
     const [caption, setCaption] = useState('');
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [mode, setMode] = useState<'upload' | 'generate'>('upload');
     const [prompt, setPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
+    const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -26,7 +29,8 @@ const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost, t }) => {
     
     const handlePost = () => {
         if (mediaPreview && caption) {
-            onPost(caption, mediaPreview);
+            const selectedCommunity = communities.find(c => c.id === selectedCommunityId);
+            onPost(caption, mediaPreview, selectedCommunity);
         }
     }
 
@@ -122,6 +126,21 @@ const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost, t }) => {
                     rows={4}
                     className="w-full bg-nexus-light-gray rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-nexus-secondary resize-none"
                 />
+
+                <div>
+                    <label htmlFor="community-select" className="text-sm text-gray-400">{t('tag_community_label')}</label>
+                    <select
+                        id="community-select"
+                        value={selectedCommunityId}
+                        onChange={(e) => setSelectedCommunityId(e.target.value)}
+                        className="w-full bg-nexus-light-gray rounded-lg px-4 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-nexus-secondary"
+                    >
+                        <option value="">{t('none_option')}</option>
+                        {communities.map(community => (
+                            <option key={community.id} value={community.id}>{community.name}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
         </div>
     );

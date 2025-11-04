@@ -37,7 +37,21 @@ const SearchView: React.FC<SearchViewProps> = ({ currentUser, onFollowToggle, on
                 
                 const querySnapshot = await getDocs(q);
                 const userList = querySnapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() } as User))
+                    .map(doc => {
+                        const data = doc.data();
+                        // Manually construct a plain user object to avoid circular references from Firestore's complex objects
+                        return {
+                            id: doc.id,
+                            name: data.name,
+                            avatarUrl: data.avatarUrl,
+                            nickname: data.nickname,
+                            bio: data.bio,
+                            password: data.password,
+                            followers: data.followers,
+                            following: data.following,
+                            joinedCommunities: data.joinedCommunities || []
+                        } as User;
+                    })
                     .filter(user => user.id !== currentUser.id);
                 
                 setResults(userList);
