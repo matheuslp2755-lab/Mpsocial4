@@ -4,9 +4,10 @@ import { SparklesIcon } from './icons/Icon';
 
 interface CreatePostViewProps {
     onPost: (caption: string, mediaUrl: string) => void;
+    t: (key: any) => string;
 }
 
-const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost }) => {
+const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost, t }) => {
     const [caption, setCaption] = useState('');
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [mode, setMode] = useState<'upload' | 'generate'>('upload');
@@ -47,13 +48,13 @@ const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost }) => {
     return (
         <div className="p-4">
             <header className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">Create Post</h1>
+                <h1 className="text-2xl font-bold">{t('create_post_title')}</h1>
                  <button 
                     onClick={handlePost} 
                     className="font-bold text-nexus-secondary disabled:text-gray-500"
                     disabled={!mediaPreview || !caption || isGenerating}
                 >
-                    Share
+                    {t('share_button')}
                 </button>
             </header>
 
@@ -63,13 +64,13 @@ const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost }) => {
                         onClick={() => { setMode('upload'); setMediaPreview(null); setError(''); }}
                         className={`w-1/2 py-2 rounded-md font-semibold text-sm transition-colors ${mode === 'upload' ? 'bg-nexus-gray' : 'hover:bg-nexus-gray/50'}`}
                     >
-                        Upload
+                        {t('upload_tab')}
                     </button>
                     <button 
                         onClick={() => { setMode('generate'); setMediaPreview(null); setError(''); }}
                         className={`w-1/2 py-2 rounded-md font-semibold text-sm transition-colors ${mode === 'generate' ? 'bg-nexus-gray' : 'hover:bg-nexus-gray/50'}`}
                     >
-                        Generate with AI
+                        {t('generate_ai_tab')}
                     </button>
                 </div>
             
@@ -79,21 +80,21 @@ const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost }) => {
                     ) : isGenerating ? (
                         <div className="flex flex-col items-center">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nexus-secondary"></div>
-                            <p className="mt-4 text-gray-300">Generating your vision...</p>
+                            <p className="mt-4 text-gray-300">{t('generating_vision_prompt')}</p>
                         </div>
                     ) : mode === 'upload' ? (
                         <>
                             <i className="fa-solid fa-photo-film text-4xl text-gray-400 mb-2"></i>
-                            <p className="text-gray-400">Select a photo or video</p>
+                            <p className="text-gray-400">{t('select_photo_prompt')}</p>
                             <label htmlFor="file-upload" className="mt-4 bg-nexus-secondary text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity">
-                                Select from computer
+                                {t('select_from_computer_button')}
                             </label>
                             <input id="file-upload" type="file" className="hidden" accept="image/*,video/*" onChange={handleFileChange} />
                         </>
                     ) : ( 
                         <div className="w-full h-full flex flex-col justify-center items-center">
                             <SparklesIcon />
-                            <p className="text-gray-300 my-2 text-sm">Describe what you want to create.</p>
+                            <p className="text-gray-300 my-2 text-sm">{t('describe_vision_prompt')}</p>
                             <textarea
                                 placeholder="e.g., A cyberpunk city skyline at dusk, neon lights reflecting on wet streets"
                                 value={prompt}
@@ -106,7 +107,7 @@ const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost }) => {
                                 disabled={!prompt || isGenerating}
                                 className="w-full bg-nexus-secondary text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50"
                             >
-                                Generate
+                                {t('generate_button')}
                             </button>
                         </div>
                     )}
@@ -115,7 +116,7 @@ const CreatePostView: React.FC<CreatePostViewProps> = ({ onPost }) => {
                 {error && <p className="text-red-400 text-sm text-center -mt-2 pb-2">{error}</p>}
                
                 <textarea
-                    placeholder="Write a caption..."
+                    placeholder={t('caption_placeholder')}
                     value={caption}
                     onChange={(e) => setCaption(e.target.value)}
                     rows={4}

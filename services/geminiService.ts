@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 
 // Assume process.env.API_KEY is available
@@ -11,14 +10,20 @@ if (API_KEY) {
   console.warn("API_KEY not found in environment variables. Gemini features will be disabled.");
 }
 
-export const generateBio = async (interests: string): Promise<string> => {
+const bioPrompts = {
+    en: (interests: string) => `Create a short, cool, and engaging social media bio (max 150 characters) for a person interested in: ${interests}. Do not use hashtags. Be creative and modern.`,
+    pt: (interests: string) => `Crie uma biografia curta, legal e envolvente para redes sociais (máximo de 150 caracteres) para uma pessoa interessada em: ${interests}. Não use hashtags. Seja criativo e moderno.`
+};
+
+
+export const generateBio = async (interests: string, language: 'en' | 'pt'): Promise<string> => {
   if (!ai) {
     return "AI features are currently unavailable.";
   }
   try {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: `Create a short, cool, and engaging social media bio (max 150 characters) for a person interested in: ${interests}. Do not use hashtags. Be creative and modern.`,
+        contents: bioPrompts[language](interests),
     });
     return response.text;
   } catch (error) {

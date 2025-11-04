@@ -1,6 +1,6 @@
 export enum View {
   Feed = 'feed',
-  Communities = 'communities',
+  Explore = 'explore',
   Create = 'create',
   Chat = 'chat',
   Profile = 'profile',
@@ -17,14 +17,21 @@ export interface User {
   following?: string[]; // Array of user IDs
 }
 
+export interface Comment {
+    id: string;
+    user: User;
+    text: string;
+    timestamp: string;
+}
+
 export interface Post {
   id: string;
   user: User;
   type: 'image' | 'video';
   contentUrl: string;
   caption: string;
-  likes: number;
-  comments: number;
+  likes: string[]; // Array of user IDs
+  comments: Comment[];
 }
 
 export interface Story {

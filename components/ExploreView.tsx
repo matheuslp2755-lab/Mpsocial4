@@ -2,11 +2,12 @@ import React from 'react';
 import { Community } from '../types';
 import { mockCommunities } from '../data/mockData';
 
-interface CommunitiesViewProps {
+interface ExploreViewProps {
     t: (key: any, params?: any) => string;
+    onSearchClick: () => void;
 }
 
-const CommunitiesHeader: React.FC<{ t: (key: any) => string }> = ({ t }) => (
+const ExploreHeader: React.FC<{ t: (key: any) => string }> = ({ t }) => (
     <header className="p-4 sticky top-0 bg-nexus-dark/80 backdrop-blur-lg z-10">
         <h1 className="text-2xl font-bold text-center">{t('communities_title')}</h1>
     </header>
@@ -29,19 +30,22 @@ const CommunityCard: React.FC<{ community: Community; t: (key: any, params?: any
 );
 
 
-const CommunitiesView: React.FC<CommunitiesViewProps> = ({ t }) => {
+const ExploreView: React.FC<ExploreViewProps> = ({ t, onSearchClick }) => {
   return (
     <div>
-        <CommunitiesHeader t={t} />
+        <ExploreHeader t={t} />
         <div className="p-4">
-            <div className="relative mb-4">
-                <input
-                    type="text"
-                    placeholder={t('search_communities_placeholder')}
-                    className="w-full bg-nexus-light-gray rounded-lg px-4 py-2 pl-10 focus:outline-none focus:ring-2 focus:ring-nexus-secondary"
-                />
-                <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <div className="relative mb-6">
+                 <button 
+                    onClick={onSearchClick}
+                    className="w-full bg-nexus-light-gray rounded-lg px-4 py-3 text-left text-gray-300 flex items-center hover:bg-nexus-gray transition-colors"
+                >
+                    <i className="fa-solid fa-search mr-3 text-gray-400"></i>
+                    {t('search_users_placeholder')}
+                </button>
             </div>
+
+            <h2 className="text-lg font-bold mb-3">{t('discover_communities')}</h2>
 
             {mockCommunities.map(community => (
                 <CommunityCard key={community.id} community={community} t={t} />
@@ -51,4 +55,4 @@ const CommunitiesView: React.FC<CommunitiesViewProps> = ({ t }) => {
   );
 };
 
-export default CommunitiesView;
+export default ExploreView;

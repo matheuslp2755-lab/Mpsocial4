@@ -36,29 +36,43 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ stories, onClose }) => {
             clearInterval(timerRef.current);
         }
 
-        const duration = currentStory.duration * 1000;
-        const startTime = Date.now();
+        if (currentStory?.type === 'image') {
+            const duration = currentStory.duration * 1000;
+            const startTime = Date.now();
 
-        timerRef.current = window.setInterval(() => {
-            const elapsedTime = Date.now() - startTime;
-            const newProgress = (elapsedTime / duration) * 100;
+            timerRef.current = window.setInterval(() => {
+                const elapsedTime = Date.now() - startTime;
+                const newProgress = (elapsedTime / duration) * 100;
 
-            if (newProgress >= 100) {
-                goToNextStory();
-            } else {
-                setProgress(newProgress);
-            }
-        }, 50);
-
+                if (newProgress >= 100) {
+                    goToNextStory();
+                } else {
+                    setProgress(newProgress);
+                }
+            }, 50);
+        }
+        
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
         };
     }, [currentStoryIndex, stories]);
     
     useEffect(() => {
-        if (currentStory.type === 'video' && videoRef.current) {
-            videoRef.current.currentTime = 0;
-            videoRef.current.play().catch(e => console.error("Video play failed:", e));
+        const video = videoRef.current;
+        if (currentStory?.type === 'video' && video) {
+            const updateProgress = () => {
+                if (video.duration) {
+                    setProgress((video.currentTime / video.duration) * 100);
+                }
+            };
+
+            video.addEventListener('timeupdate', updateProgress);
+            video.currentTime = 0;
+            video.play().catch(e => console.error("Video play failed:", e));
+            
+            return () => {
+                video.removeEventListener('timeupdate', updateProgress);
+            }
         }
     }, [currentStory]);
 
@@ -87,7 +101,10 @@ const StoryViewer: React.FC<StoryViewerProps> = ({ stories, onClose }) => {
                         <div key={index} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
                            <div
                              className="h-full bg-white"
-                             style={{ width: `${index < currentStoryIndex ? 100 : (index === currentStoryIndex ? progress : 0)}%` }}
+                             style={{ 
+                                 width: `${index < currentStoryIndex ? 100 : (index === currentStoryIndex ? progress : 0)}%`,
+                                 transition: progress === 0 ? 'none' : 'width 0.05s linear' 
+                             }}
                            ></div>
                         </div>
                     ))}

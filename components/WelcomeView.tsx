@@ -3,6 +3,7 @@ import { User } from '../types';
 
 interface WelcomeViewProps {
     user: User;
+    t: (key: any, params?: any) => string;
 }
 
 const Fireworks: React.FC = () => {
@@ -41,7 +42,7 @@ const Fireworks: React.FC = () => {
 };
 
 
-const WelcomeView: React.FC<WelcomeViewProps> = ({ user }) => {
+const WelcomeView: React.FC<WelcomeViewProps> = ({ user, t }) => {
     return (
         <div className="min-h-screen bg-nexus-dark flex flex-col items-center justify-center p-4 relative overflow-hidden">
              <style>{`
@@ -89,7 +90,7 @@ const WelcomeView: React.FC<WelcomeViewProps> = ({ user }) => {
              <Fireworks />
             <div className="animate-welcome z-10">
                 <h1 className="text-5xl font-bold font-serif mb-4 text-center">MP SOCIAL</h1>
-                <p className="text-2xl text-gray-300 text-center">Welcome, {user.name}!</p>
+                <p className="text-2xl text-gray-300 text-center">{t('welcome_message', { name: user.name })}</p>
             </div>
         </div>
     );

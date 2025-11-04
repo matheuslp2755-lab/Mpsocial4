@@ -6,11 +6,12 @@ interface ChatViewProps {
     currentUser: User;
     onBack: () => void;
     onSendMessage: (conversationId: string, text: string) => void;
+    t: (key: any) => string;
 }
 
 const EMOJIS = ['😀', '😂', '❤️', '👍', '🙏', '😭', '🔥', '🎉', '🤔', '😊', '💯', '✨'];
 
-const ChatView: React.FC<ChatViewProps> = ({ conversation, currentUser, onBack, onSendMessage }) => {
+const ChatView: React.FC<ChatViewProps> = ({ conversation, currentUser, onBack, onSendMessage, t }) => {
     const [message, setMessage] = useState('');
     const [showEmojis, setShowEmojis] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -74,14 +75,14 @@ const ChatView: React.FC<ChatViewProps> = ({ conversation, currentUser, onBack, 
                     </button>
                     <input
                         type="text"
-                        placeholder="Message..."
+                        placeholder={t('message_placeholder')}
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                         className="flex-1 bg-transparent px-3 py-2 focus:outline-none text-white"
                     />
                     <button onClick={handleSend} className="p-2 text-nexus-secondary font-semibold disabled:opacity-50" disabled={!message.trim()}>
-                        Send
+                        {t('send_button')}
                     </button>
                 </div>
             </footer>

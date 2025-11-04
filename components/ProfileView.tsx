@@ -10,16 +10,18 @@ interface ProfileViewProps {
   onEditProfile: () => void;
   onLogout: () => void;
   onFollowToggle: (targetUserId: string) => void;
+  t: (key: any) => string;
+  language: 'en' | 'pt';
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ profileUser, currentUser, posts, onEditProfile, onLogout, onFollowToggle }) => {
+const ProfileView: React.FC<ProfileViewProps> = ({ profileUser, currentUser, posts, onEditProfile, onLogout, onFollowToggle, t, language }) => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
 
     const handleGenerateBio = async () => {
         setIsGenerating(true);
         const interests = "technology, vintage synths, sci-fi movies, and street photography";
-        await generateBio(interests);
+        await generateBio(interests, language);
         // This functionality would need to be updated to save the bio to the user state in App.tsx
         // For now, we disable the visual update to prevent confusion, as it wasn't being saved.
         setIsGenerating(false);
@@ -46,15 +48,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profileUser, currentUser, pos
                 <div className="flex-1 flex justify-around text-center">
                     <div>
                         <p className="font-bold text-lg">{userPosts.length}</p>
-                        <p className="text-sm text-gray-400">Posts</p>
+                        <p className="text-sm text-gray-400">{t('profile_posts')}</p>
                     </div>
                      <div>
                         <p className="font-bold text-lg">{profileUser.followers?.length || 0}</p>
-                        <p className="text-sm text-gray-400">Followers</p>
+                        <p className="text-sm text-gray-400">{t('profile_followers')}</p>
                     </div>
                      <div>
                         <p className="font-bold text-lg">{profileUser.following?.length || 0}</p>
-                        <p className="text-sm text-gray-400">Following</p>
+                        <p className="text-sm text-gray-400">{t('profile_following')}</p>
                     </div>
                 </div>
             </div>
@@ -67,14 +69,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profileUser, currentUser, pos
             <div className="flex items-center space-x-2 mb-4">
                 {isOwnProfile ? (
                     <>
-                        <button onClick={onEditProfile} className="flex-1 bg-nexus-light-gray font-semibold py-2 rounded-lg text-sm">Edit Profile</button>
+                        <button onClick={onEditProfile} className="flex-1 bg-nexus-light-gray font-semibold py-2 rounded-lg text-sm">{t('edit_profile_button')}</button>
                         <button 
                             onClick={handleGenerateBio}
                             disabled={isGenerating}
                             className="flex-1 bg-nexus-light-gray font-semibold py-2 rounded-lg text-sm flex items-center justify-center space-x-2 disabled:opacity-50"
                         >
                             <SparklesIcon />
-                            <span>{isGenerating ? 'Generating...' : 'AI Bio'}</span>
+                            <span>{isGenerating ? t('generating_button') : t('ai_bio_button')}</span>
                         </button>
                     </>
                 ) : (
@@ -86,7 +88,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profileUser, currentUser, pos
                                 : 'bg-nexus-secondary text-white'
                         }`}
                     >
-                        {isFollowing ? 'Following' : 'Follow'}
+                        {isFollowing ? t('following_button') : t('follow_button')}
                     </button>
                 )}
             </div>
@@ -112,10 +114,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profileUser, currentUser, pos
                     <div className="bg-nexus-gray w-full rounded-t-2xl p-4" onClick={e => e.stopPropagation()}>
                         <div className="w-10 h-1 bg-nexus-light-gray rounded-full mx-auto mb-4"></div>
                         <button onClick={onLogout} className="w-full text-left p-3 text-red-500 font-semibold hover:bg-nexus-light-gray rounded-lg">
-                            Log Out
+                            {t('logout_button')}
                         </button>
                          <button onClick={() => setShowSettings(false)} className="w-full text-left p-3 mt-2 font-semibold hover:bg-nexus-light-gray rounded-lg">
-                            Cancel
+                            {t('cancel_button')}
                         </button>
                     </div>
                 </div>
