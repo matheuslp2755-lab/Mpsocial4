@@ -21,7 +21,7 @@ import { translations } from './i18n';
 const App: React.FC = () => {
   const [users, setUsers] = useState<User[]>(() => {
     const savedUsers = localStorage.getItem('mp_social_users');
-    return savedUsers ? JSON.parse(savedUsers) : [];
+    return savedUsers ? JSON.parse(savedUsers) : mockUsers;
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -154,7 +154,7 @@ const App: React.FC = () => {
   const handleSaveProfile = (updatedUser: User) => {
     setCurrentUser(updatedUser);
     localStorage.setItem('mp_social_currentUser', JSON.stringify(updatedUser));
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setUsers(prevUsers => prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u));
     setIsEditingProfile(false);
     setIsNewUserSetup(false);
     setIsSearching(false); // Close search view if open
@@ -201,62 +201,59 @@ const App: React.FC = () => {
   const handleFollowToggle = (targetUserId: string) => {
     if (!currentUser) return;
 
-    let updatedCurrentUser: User | null = null;
-    let targetUser: User | null = null;
-    
-    const updatedUsers = users.map(u => {
-        if (u.id === currentUser.id) {
-            const isFollowing = u.following?.includes(targetUserId);
-            updatedCurrentUser = {
-                ...u,
-                following: isFollowing
-                    ? u.following?.filter(id => id !== targetUserId)
-                    : [...(u.following || []), targetUserId],
-            };
-            return updatedCurrentUser;
+    setUsers(prevUsers => {
+        const newUsers = prevUsers.map(u => {
+            // Update follower on target user
+            if (u.id === targetUserId) {
+                const isFollowed = u.followers?.includes(currentUser.id);
+                return {
+                    ...u,
+                    followers: isFollowed
+                        ? u.followers?.filter(id => id !== currentUser.id)
+                        : [...(u.followers || []), currentUser.id],
+                };
+            }
+            // Update following on current user
+            if (u.id === currentUser.id) {
+                const isFollowing = u.following?.includes(targetUserId);
+                return {
+                    ...u,
+                    following: isFollowing
+                        ? u.following?.filter(id => id !== targetUserId)
+                        : [...(u.following || []), targetUserId],
+                };
+            }
+            return u;
+        });
+        
+        const updatedCurrentUser = newUsers.find(u => u.id === currentUser.id);
+        const targetUser = newUsers.find(u => u.id === targetUserId);
+
+        if (updatedCurrentUser) {
+            setCurrentUser(updatedCurrentUser);
+            localStorage.setItem('mp_social_currentUser', JSON.stringify(updatedCurrentUser));
         }
-        if (u.id === targetUserId) {
-            targetUser = u;
-            const isFollowed = u.followers?.includes(currentUser.id);
-            const updatedTargetUser = {
-                ...u,
-                followers: isFollowed
-                    ? u.followers?.filter(id => id !== currentUser.id)
-                    : [...(u.followers || []), currentUser.id],
-            };
-            return updatedTargetUser;
+
+        if (selectedProfileUser && selectedProfileUser.id === targetUserId && targetUser) {
+            setSelectedProfileUser(targetUser);
         }
-        return u;
+
+        // Handle conversation creation
+        if (updatedCurrentUser && targetUser) {
+            const isFollowing = updatedCurrentUser.following?.includes(targetUserId);
+            if (isFollowing) {
+                setConversations(prevConvos => {
+                    const conversationExists = prevConvos.some(c => c.user.id === targetUserId);
+                    if (!conversationExists) {
+                        const newConversation: ChatConversation = { id: `c${currentUser.id}-${targetUserId}`, user: targetUser, lastMessage: t('start_conversation_prompt', { name: targetUser.name }), lastMessageTime: '', messages: [], };
+                        return [newConversation, ...prevConvos];
+                    }
+                    return prevConvos;
+                });
+            }
+        }
+        return newUsers;
     });
-
-    if (!updatedCurrentUser || !targetUser) return;
-    
-    const isFollowing = updatedCurrentUser.following?.includes(targetUserId);
-
-    if (isFollowing) {
-        const conversationExists = conversations.some(c => c.user.id === targetUserId);
-        if (!conversationExists) {
-            const newConversation: ChatConversation = {
-                id: `c${currentUser.id}-${targetUserId}`,
-                user: targetUser,
-                lastMessage: t('start_conversation_prompt', { name: targetUser.name }),
-                lastMessageTime: '',
-                messages: [],
-            };
-            setConversations(prev => [newConversation, ...prev]);
-        }
-    }
-
-    setUsers(updatedUsers);
-    setCurrentUser(updatedCurrentUser);
-    localStorage.setItem('mp_social_currentUser', JSON.stringify(updatedCurrentUser));
-
-    if (selectedProfileUser && selectedProfileUser.id === targetUserId) {
-      const updatedSelectedProfile = updatedUsers.find(u => u.id === targetUserId);
-      if (updatedSelectedProfile) {
-        setSelectedProfileUser(updatedSelectedProfile);
-      }
-    }
   };
 
   const handleLikeToggle = (postId: string) => {
