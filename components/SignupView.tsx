@@ -28,9 +28,11 @@ const SignupView: React.FC<SignupViewProps> = ({ users, onSignupSuccess, onSwitc
         const newUser: User = {
             id: `u${users.length + 1}`,
             name: username,
-            password: password, // Save the password
-            avatarUrl: `https://i.pravatar.cc/150?u=${Date.now()}`, // Use timestamp for unique avatar
-            bio: 'Just joined Nexus! ✨'
+            password: password,
+            avatarUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
+            bio: 'Just joined MP SOCIAL! ✨',
+            followers: [],
+            following: [],
         };
 
         setError('');
@@ -40,7 +42,7 @@ const SignupView: React.FC<SignupViewProps> = ({ users, onSignupSuccess, onSwitc
     return (
         <div className="min-h-screen bg-nexus-dark flex flex-col items-center justify-center p-4">
             <h1 className="text-4xl font-bold mb-2">Create Account</h1>
-            <p className="text-gray-400 mb-8">Join the Nexus community.</p>
+            <p className="text-gray-400 mb-8">Join the MP SOCIAL community.</p>
             
             <div className="w-full max-w-sm">
                 {error && <p className="bg-red-500/20 text-red-400 text-center text-sm p-3 rounded-lg mb-4">{error}</p>}

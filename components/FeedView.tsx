@@ -11,7 +11,7 @@ interface FeedViewProps {
 
 const FeedHeader: React.FC<{ onNavigate: (view: View) => void }> = ({ onNavigate }) => (
     <header className="p-4 flex justify-between items-center sticky top-0 bg-nexus-dark/80 backdrop-blur-lg z-10">
-        <h1 className="text-3xl font-bold font-serif">Nexus</h1>
+        <h1 className="text-3xl font-bold font-serif">MP SOCIAL</h1>
         <div className="flex items-center space-x-5">
             <button onClick={() => onNavigate(View.Create)} aria-label="Create Post"><i className="fa-regular fa-plus-square text-2xl"></i></button>
             <button aria-label="Notifications"><i className="fa-regular fa-heart text-2xl"></i></button>
@@ -87,7 +87,7 @@ const FeedView: React.FC<FeedViewProps> = ({ posts, onViewProfile, onNavigate })
                 ) : (
                     <div className="text-center p-16 text-gray-400">
                         <i className="fa-solid fa-camera-retro text-5xl mb-4"></i>
-                        <h2 className="text-xl font-bold">Welcome to Nexus!</h2>
+                        <h2 className="text-xl font-bold">Welcome to MP SOCIAL!</h2>
                         <p>It's quiet in here. Be the first to share a moment.</p>
                     </div>
                 )}
