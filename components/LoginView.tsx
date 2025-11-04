@@ -2,28 +2,27 @@ import React, { useState } from 'react';
 import { User } from '../types';
 
 interface LoginViewProps {
-    users: User[];
-    onLoginSuccess: (user: User) => void;
+    onLoginSuccess: (username: string, password?: string) => Promise<{ success: boolean, error?: string }>;
     onSwitchToSignup: () => void;
     language: 'en' | 'pt';
     setLanguage: (lang: 'en' | 'pt') => void;
     t: (key: any) => string;
 }
 
-const LoginView: React.FC<LoginViewProps> = ({ users, onLoginSuccess, onSwitchToSignup, language, setLanguage, t }) => {
+const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, onSwitchToSignup, language, setLanguage, t }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = () => {
-        const user = users.find(u => u.name.toLowerCase() === username.toLowerCase());
-        
-        if (user && user.password === password) {
-            setError('');
-            onLoginSuccess(user);
-        } else {
-            setError(t('invalid_credentials_error'));
+    const handleLogin = async () => {
+        setIsLoading(true);
+        setError('');
+        const result = await onLoginSuccess(username, password);
+        if (!result.success) {
+            setError(result.error || 'An unknown error occurred');
         }
+        setIsLoading(false);
     };
 
     return (
@@ -62,9 +61,10 @@ const LoginView: React.FC<LoginViewProps> = ({ users, onLoginSuccess, onSwitchTo
                 />
                 <button
                     onClick={handleLogin}
-                    className="w-full bg-nexus-secondary text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity"
+                    disabled={isLoading}
+                    className="w-full bg-nexus-secondary text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                    {t('login_button')}
+                    {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> : t('login_button')}
                 </button>
             </div>
 

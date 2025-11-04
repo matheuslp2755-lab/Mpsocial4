@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 
 interface SearchViewProps {
-    users: User[];
     currentUser: User;
     onFollowToggle: (targetUserId: string) => void;
     onViewProfile: (user: User) => void;
@@ -10,13 +11,50 @@ interface SearchViewProps {
     t: (key: any) => string;
 }
 
-const SearchView: React.FC<SearchViewProps> = ({ users, currentUser, onFollowToggle, onViewProfile, onClose, t }) => {
+const SearchView: React.FC<SearchViewProps> = ({ currentUser, onFollowToggle, onViewProfile, onClose, t }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [results, setResults] = useState<User[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
 
-    const filteredUsers = users.filter(user => 
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.nickname?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    useEffect(() => {
+        const searchUsers = async () => {
+            if (searchTerm.trim() === '') {
+                setResults([]);
+                setHasSearched(false);
+                return;
+            }
+            setIsLoading(true);
+            setHasSearched(true);
+            try {
+                const usersCollection = collection(db, "usuarios");
+                const q = query(
+                    usersCollection,
+                    where('name', '>=', searchTerm),
+                    where('name', '<=', searchTerm + '\uf8ff'),
+                    limit(20)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                const userList = querySnapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() } as User))
+                    .filter(user => user.id !== currentUser.id);
+                
+                setResults(userList);
+            } catch (error) {
+                console.error("Error searching users:", error);
+                setResults([]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        const debounceTimer = setTimeout(() => {
+            searchUsers();
+        }, 300);
+
+        return () => clearTimeout(debounceTimer);
+    }, [searchTerm, currentUser.id]);
 
     return (
         <div className="h-full flex flex-col bg-nexus-dark">
@@ -38,12 +76,16 @@ const SearchView: React.FC<SearchViewProps> = ({ users, currentUser, onFollowTog
             </header>
 
             <main className="flex-1 overflow-y-auto p-2">
-                {filteredUsers.length > 0 ? filteredUsers.map(user => {
+                {isLoading ? (
+                    <div className="text-center p-16">
+                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nexus-secondary mx-auto"></div>
+                    </div>
+                ) : hasSearched && results.length > 0 ? results.map(user => {
                     const isFollowing = currentUser.following?.includes(user.id);
                     return (
                         <div key={user.id} className="flex items-center justify-between p-3 hover:bg-nexus-light-gray rounded-lg">
                             <div className="flex items-center cursor-pointer flex-1 min-w-0" onClick={() => onViewProfile(user)}>
-                                <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-full mr-4" />
+                                <img src={user.avatarUrl} alt={user.name} className="w-12 h-12 rounded-full mr-4 object-cover" />
                                 <div className="min-w-0">
                                     <p className="font-semibold truncate">{user.name}</p>
                                     {user.nickname && <p className="text-sm text-gray-400 truncate">{user.nickname}</p>}
@@ -63,7 +105,7 @@ const SearchView: React.FC<SearchViewProps> = ({ users, currentUser, onFollowTog
                     );
                 }) : (
                     <div className="text-center p-16 text-gray-400">
-                        <p>No users found.</p>
+                        <p>{hasSearched ? 'Nenhum usuário encontrado.' : 'Procure por amigos ou criadores.'}</p>
                     </div>
                 )}
             </main>

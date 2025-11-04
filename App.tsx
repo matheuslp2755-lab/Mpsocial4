@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { ChatConversation, User, View, Post, Comment, Story } from './types';
-import { mockUsers } from './data/mockData';
 import BottomNav from './components/BottomNav';
 import ChatListView from './components/ChatListView';
 import ChatView from './components/ChatView';
@@ -17,17 +16,12 @@ import CommentsView from './components/CommentsView';
 import CreateStoryView from './components/CreateStoryView';
 import StoryViewer from './components/StoryViewer';
 import { translations } from './i18n';
+import { db } from './firebase';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, arrayUnion, arrayRemove, query, where } from "firebase/firestore";
 
 const App: React.FC = () => {
-  const [users, setUsers] = useState<User[]>(() => {
-    const savedUsers = localStorage.getItem('mp_social_users');
-    return savedUsers ? JSON.parse(savedUsers) : mockUsers;
-  });
-
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const savedUser = localStorage.getItem('mp_social_currentUser');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const [posts, setPosts] = useState<Post[]>(() => {
     const savedPosts = localStorage.getItem('mp_social_posts');
@@ -48,10 +42,6 @@ const App: React.FC = () => {
     const savedConversations = localStorage.getItem('mp_social_conversations');
     return savedConversations ? JSON.parse(savedConversations) : [];
   });
-
-  useEffect(() => {
-    localStorage.setItem('mp_social_users', JSON.stringify(users));
-  }, [users]);
 
   useEffect(() => {
     localStorage.setItem('mp_social_posts', JSON.stringify(posts));
@@ -95,27 +85,60 @@ const App: React.FC = () => {
   const [isCreatingStory, setIsCreatingStory] = useState(false);
   const [viewingStoriesOfUser, setViewingStoriesOfUser] = useState<User | null>(null);
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    localStorage.setItem('mp_social_currentUser', JSON.stringify(user));
+  const handleLogin = async (username: string, password?: string) => {
+    const usersCollection = collection(db, "usuarios");
+    const q = query(usersCollection, where("name", "==", username));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+        return { success: false, error: t('invalid_credentials_error') };
+    }
+
+    const userDoc = querySnapshot.docs[0];
+    const user = { id: userDoc.id, ...userDoc.data() } as User;
+
+    if (user.password === password) {
+        setCurrentUser(user);
+        return { success: true };
+    } else {
+        return { success: false, error: t('invalid_credentials_error') };
+    }
   };
     
-  const handleSignup = (newUser: User) => {
-    setUsers(prevUsers => [...prevUsers, newUser]);
+  const handleSignup = async (newUserPartial: Omit<User, 'id'>) => {
+    const { name } = newUserPartial;
+    const usersCollection = collection(db, "usuarios");
+    const q = query(usersCollection, where("name", "==", name));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+        return { success: false, error: t('username_taken_error') };
+    }
+
+    const newUserId = `u${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const newUser: User = {
+        id: newUserId,
+        ...newUserPartial,
+    };
+    
+    await setDoc(doc(db, "usuarios", newUser.id), newUser);
+    
+    setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
-    localStorage.setItem('mp_social_currentUser', JSON.stringify(newUser));
+
     setShowWelcome(true);
     setIsNewUserSetup(true);
     setTimeout(() => {
         setShowWelcome(false);
         setIsEditingProfile(true); 
     }, 2500);
+
+    return { success: true };
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setSelectedProfileUser(null);
-    localStorage.removeItem('mp_social_currentUser');
     setActiveView(View.Feed);
     setAuthScreen('login');
   };
@@ -151,9 +174,11 @@ const App: React.FC = () => {
     });
   };
     
-  const handleSaveProfile = (updatedUser: User) => {
+  const handleSaveProfile = async (updatedUser: User) => {
+    const userRef = doc(db, "usuarios", updatedUser.id);
+    await setDoc(userRef, updatedUser, { merge: true });
+
     setCurrentUser(updatedUser);
-    localStorage.setItem('mp_social_currentUser', JSON.stringify(updatedUser));
     setUsers(prevUsers => prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u));
     setIsEditingProfile(false);
     setIsNewUserSetup(false);
@@ -198,63 +223,59 @@ const App: React.FC = () => {
     setIsSearching(false);
   };
 
-  const handleFollowToggle = (targetUserId: string) => {
+  const handleFollowToggle = async (targetUserId: string) => {
     if (!currentUser) return;
+    const currentUserId = currentUser.id;
 
-    setUsers(prevUsers => {
-        const newUsers = prevUsers.map(u => {
-            // Update follower on target user
+    const currentUserRef = doc(db, "usuarios", currentUserId);
+    const targetUserRef = doc(db, "usuarios", targetUserId);
+    const isFollowing = currentUser.following?.includes(targetUserId);
+
+    try {
+        await Promise.all([
+            updateDoc(currentUserRef, { following: isFollowing ? arrayRemove(targetUserId) : arrayUnion(targetUserId) }),
+            updateDoc(targetUserRef, { followers: isFollowing ? arrayRemove(currentUserId) : arrayUnion(currentUserId) })
+        ]);
+
+        // Optimistically update local state for immediate UI feedback
+        const updatedUsers = users.map(u => {
             if (u.id === targetUserId) {
-                const isFollowed = u.followers?.includes(currentUser.id);
-                return {
-                    ...u,
-                    followers: isFollowed
-                        ? u.followers?.filter(id => id !== currentUser.id)
-                        : [...(u.followers || []), currentUser.id],
-                };
+                return { ...u, followers: isFollowing ? u.followers?.filter(id => id !== currentUserId) : [...(u.followers || []), currentUserId] };
             }
-            // Update following on current user
-            if (u.id === currentUser.id) {
-                const isFollowing = u.following?.includes(targetUserId);
-                return {
-                    ...u,
-                    following: isFollowing
-                        ? u.following?.filter(id => id !== targetUserId)
-                        : [...(u.following || []), targetUserId],
-                };
+            if (u.id === currentUserId) {
+                return { ...u, following: isFollowing ? u.following?.filter(id => id !== targetUserId) : [...(u.following || []), targetUserId] };
             }
             return u;
         });
-        
-        const updatedCurrentUser = newUsers.find(u => u.id === currentUser.id);
-        const targetUser = newUsers.find(u => u.id === targetUserId);
+
+        const updatedCurrentUser = updatedUsers.find(u => u.id === currentUserId);
+        const targetUser = updatedUsers.find(u => u.id === targetUserId);
 
         if (updatedCurrentUser) {
             setCurrentUser(updatedCurrentUser);
-            localStorage.setItem('mp_social_currentUser', JSON.stringify(updatedCurrentUser));
         }
 
         if (selectedProfileUser && selectedProfileUser.id === targetUserId && targetUser) {
             setSelectedProfileUser(targetUser);
         }
 
-        // Handle conversation creation
-        if (updatedCurrentUser && targetUser) {
-            const isFollowing = updatedCurrentUser.following?.includes(targetUserId);
-            if (isFollowing) {
-                setConversations(prevConvos => {
-                    const conversationExists = prevConvos.some(c => c.user.id === targetUserId);
-                    if (!conversationExists) {
-                        const newConversation: ChatConversation = { id: `c${currentUser.id}-${targetUserId}`, user: targetUser, lastMessage: t('start_conversation_prompt', { name: targetUser.name }), lastMessageTime: '', messages: [], };
-                        return [newConversation, ...prevConvos];
-                    }
-                    return prevConvos;
-                });
-            }
+        if (updatedCurrentUser && targetUser && !isFollowing) {
+            setConversations(prevConvos => {
+                const conversationExists = prevConvos.some(c => c.user.id === targetUserId);
+                if (!conversationExists) {
+                    const newConversation: ChatConversation = { id: `c${currentUser.id}-${targetUserId}`, user: targetUser, lastMessage: t('start_conversation_prompt', { name: targetUser.name }), lastMessageTime: '', messages: [], };
+                    return [newConversation, ...prevConvos];
+                }
+                return prevConvos;
+            });
         }
-        return newUsers;
-    });
-  };
+        setUsers(updatedUsers);
+    } catch (error) {
+        console.error("Error updating follow status: ", error);
+        // Optionally revert state on error
+    }
+};
+
 
   const handleLikeToggle = (postId: string) => {
     if (!currentUser) return;
@@ -315,7 +336,6 @@ const App: React.FC = () => {
   if (!currentUser) {
     return authScreen === 'login' ? (
       <LoginView 
-        users={users} 
         onLoginSuccess={handleLogin} 
         onSwitchToSignup={() => setAuthScreen('signup')} 
         language={language}
@@ -324,7 +344,6 @@ const App: React.FC = () => {
       />
     ) : (
       <SignupView 
-        users={users} 
         onSignupSuccess={handleSignup} 
         onSwitchToLogin={() => setAuthScreen('login')}
         t={t}
@@ -375,7 +394,6 @@ const App: React.FC = () => {
 
   if (isSearching) {
     return <SearchView 
-      users={users.filter(u => u.id !== currentUser.id)}
       currentUser={currentUser}
       onFollowToggle={handleFollowToggle}
       onViewProfile={handleViewProfile}

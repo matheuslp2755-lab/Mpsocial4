@@ -2,33 +2,29 @@ import React, { useState } from 'react';
 import { User } from '../types';
 
 interface SignupViewProps {
-    users: User[];
-    onSignupSuccess: (newUser: User) => void;
+    onSignupSuccess: (newUser: Omit<User, 'id'>) => Promise<{ success: boolean; error?: string }>;
     onSwitchToLogin: () => void;
     t: (key: any) => string;
     language: 'en' | 'pt';
 }
 
-const SignupView: React.FC<SignupViewProps> = ({ users, onSignupSuccess, onSwitchToLogin, t, language }) => {
+const SignupView: React.FC<SignupViewProps> = ({ onSignupSuccess, onSwitchToLogin, t }) => {
     const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleSignup = () => {
+    const handleSignup = async () => {
         if (!email || !username || !password) {
             setError(t('all_fields_required_error'));
             return;
         }
 
-        const usernameExists = users.some(u => u.name.toLowerCase() === username.toLowerCase());
-        if (usernameExists) {
-            setError(t('username_taken_error'));
-            return;
-        }
+        setIsLoading(true);
+        setError('');
 
-        const newUser: User = {
-            id: `u${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        const newUserPartial: Omit<User, 'id'> = {
             name: username,
             password: password,
             avatarUrl: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
@@ -36,9 +32,13 @@ const SignupView: React.FC<SignupViewProps> = ({ users, onSignupSuccess, onSwitc
             followers: [],
             following: [],
         };
+        
+        const result = await onSignupSuccess(newUserPartial);
 
-        setError('');
-        onSignupSuccess(newUser);
+        if (!result.success) {
+            setError(result.error || 'Failed to create account.');
+        }
+        setIsLoading(false);
     };
 
     return (
@@ -72,9 +72,10 @@ const SignupView: React.FC<SignupViewProps> = ({ users, onSignupSuccess, onSwitc
                 />
                 <button
                     onClick={handleSignup}
-                    className="w-full bg-nexus-secondary text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity"
+                    disabled={isLoading}
+                    className="w-full bg-nexus-secondary text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                    {t('signup_button')}
+                    {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div> : t('signup_button')}
                 </button>
             </div>
 
